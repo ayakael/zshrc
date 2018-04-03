@@ -15,14 +15,10 @@ usrcArray=(~/.zshenv ~/.zshalias)
 
 # Global settings
 for gsrc in "${gsrcArray[@]}"; do
-	if [[ -f "${gsrc}" ]]; then
-		source "${gsrc}"
-	fi
+	[[ -f "${gsrc}" ]] && source "${gsrc}"
 done
 
 # User settings
-for gsrc in "${gsrcArray[@]}"; do
-	if [[ -f "${gsrc}" ]]; then
-		source "${gsrc}"
-	fi
+for usrc in "${usrcArray[@]}"; do
+    [[ -f "${usrc}" ]] && source "${usrc}"
 done

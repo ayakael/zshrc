@@ -1,0 +1,146 @@
+# Prompt Shell builder
+	# [1] Connection security
+		# Connected on remote machine, via ssh (good).
+		if [ -n "${SSH_CONNECTION}" ]; then 
+		    CONNECTION_LEFT="%F{green}[%f"   
+		    CONNECTION_RIGHT="%F{green}]%f"   
+		# Connected on remote machine, not via ssh (bad).    
+		elif [ "${DISPLAY%%:0*}" != "" ]; then
+		    CONNECTION_LEFT="%K{white}%F{red}[%f%k"
+		    CONNECTION_RIGHT="%K{white}%F{red}]%f%k"
+		# Connected on local machine.
+		else
+		    CONNECTION_LEFT="["
+		    CONNECTION_RIGHT="]"
+		fi
+
+
+	# [2] User type
+		# Root
+		if [[ ${USER} = "root" ]]; then
+			USER_PS="%F{red}%n%f"
+		# Admin
+		elif groups | grep -qw prod; then
+			USER_PS="%F{yellow}%n%f"
+		# Normal
+		else
+			USER_PS="%B%F{black}%n%f%b"
+		fi
+	# [3] Random color "@"
+		function random_color() {
+			COLOR_DB=(black red green yellow blue magenta cyan white)
+			RANDOM_COLOR_NO=$(shuf -i 0-15 -n 1)
+			if [[ ${RANDOM_COLOR_NO} -le 7 ]]; then
+				RANDOM_AT="%F{$COLOR_DB[$RANDOM_COLOR_NO]}@%f"
+			else
+				RANDOM_COLOR_NO=$(( ${RANDOM_COLOR_NO} - 8 ))
+				RANDOM_AT="%B%F{$COLOR_DB[$RANDOM_COLOR_NO]}@%f%b"
+			fi
+		}
+
+	# [4] System load indicator
+		# Returns usage (script inspired by Paul Colby's cpu.sh script)
+			function check_load() {
+				while true; do
+					unset DIFF_IDLE
+					unset DIFF_TOTAL
+					unset DIFF_USAGE
+					unset TOTAL
+					unset IDLE
+					unset VALUE
+					unset CPU
+					for i in {1..2}; do
+						CPU=(`sed -n 's/^cpu\s//p' /proc/stat`) 
+						IDLE[$i]=${CPU[4]} # Just the idle CPU time.
+						for VALUE in "${CPU[@]}"; do
+							TOTAL[$i]=$((${TOTAL[$i]}+$VALUE))
+						done
+						if [ $i = 1 ]; then
+							sleep 2
+						fi
+					done
+					# Returns a color indicating system load.
+					# Calculate the CPU usage since we last checked.
+					DIFF_IDLE=$(( ${IDLE[2]} - ${IDLE[1]} ))
+					DIFF_TOTAL=$(( ${TOTAL[2]} - ${TOTAL[1]} ))
+					DIFF_USAGE=$(( (1000*($DIFF_TOTAL - $DIFF_IDLE) / $DIFF_TOTAL+5) / 10 ))
+					echo $DIFF_USAGE > /dev/shm/DIFF_USAGE
+				done
+			}
+			if [ ! -f /dev/shm/DIFF_USAGE ]; then
+				echo 0 > /dev/shm/DIFF_USAGE
+				chmod 777 /dev/shm/DIFF_USAGE
+			fi
+			if [ ! -f /dev/shm/DIFF_USAGE.pid ]; then
+				echo 0 > /dev/shm/DIFF_USAGE.pid
+				chmod 777 /dev/shm/DIFF_USAGE.pid
+			fi
+			if ! eval ps -p $(cat /dev/shm/DIFF_USAGE.pid) > /dev/null 2>&1; then
+				check_load &
+				echo $! > /dev/shm/DIFF_USAGE.pid
+			fi
+			function load_color() {
+					# Load vars
+						# Small load
+						SLOAD=30
+						# Medium load
+						MLOAD=60
+						# Large load
+						LLOAD=80
+					if [ $(cat /dev/shm/DIFF_USAGE) -gt ${LLOAD} ]; then
+						LOAD="%F{red}%m%f"
+					elif [ $(cat /dev/shm/DIFF_USAGE) -gt ${MLOAD} ]; then
+						LOAD="%F{yellow}%m%f"
+					elif [ $(cat /dev/shm/DIFF_USAGE) -gt ${SLOAD} ]; then
+						LOAD="%F{green  }%m%f"
+					else
+						LOAD="%B%F{black}%m%f%b"
+					fi
+			}
+		
+			
+	# [5] Disk space indicator
+		function disk_color(){
+			if [ ! -w "${PWD}" ] ; then
+				DISK_COLOR=$fg[red]
+				# No 'write' privilege in the current directory.
+			elif [ -s "${PWD}" ] ; then
+				local used=$(command df -P "$PWD" | awk 'END {print $5} {sub(/%/,"")}')
+				if [ ${used} -gt 85 ]; then
+					# Disk almost full (>85%)
+					DISK="%F{red}%1~%f"
+				elif [ ${used} -gt 60 ]; then
+					# Free disk space almost gone
+					DISK="%F{yellow}%1~%f"     
+				else
+					# Free disk space is ok
+					DISK="%F{green}%1~%f"  
+				fi
+			else
+				DISK="%B%F{black}%~%f%b"
+				# Current directory is size '0' (like /proc, /sys etc).
+			fi
+		}
+		
+# PS builder
+	function buildPS() {
+		case ${TERM} in
+			*linux | rxvt-unicode-256color | xterm)
+				PS1="${CONNECTION_LEFT}${USER_PS}${RANDOM_AT}${LOAD}:${DISK}${CONNECTION_RIGHT}$ "
+				PS2="$ "
+				PS3="#?"
+				PS4='[${LINENO}]+ '
+			;;
+
+			*)
+				PS1="${CONNECTION_LEFT}${USER_PS}${RANDOM_AT}${LOAD}:${DISK}${CONNECTION_RIGHT}$ "
+			;;
+		esac
+	}
+
+precmd() {
+	random_color
+	load_color
+	disk_color
+	buildPS
+}

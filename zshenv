@@ -1,4 +1,4 @@
 # Global exports
-export VISUAL=nano
-export EDITOR=nano
+export VISUAL=vim
+export EDITOR=vim
 export SSH_AUTH_SOCK=$(gpgconf --list-dirs agent-ssh-socket)

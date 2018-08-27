@@ -20,7 +20,7 @@
 		if [[ ${USER} = "root" ]]; then
 			USER_PS="%F{red}%n%f"
 		# Admin
-		elif groups | grep -qw prod; then
+		elif groups | grep -qw sudo; then
 			USER_PS="%F{yellow}%n%f"
 		# Normal
 		else

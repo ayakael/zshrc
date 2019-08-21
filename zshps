@@ -1,3 +1,12 @@
+_if_array_contains() {
+    local i=${1}; shift
+    local eArray=(${@})
+
+    for e in ${eArray[@]}; do
+        [[ "${e}" = "${i}" ]] && return 0
+    done 
+    return 1 
+}
 # Prompt Shell builder
 	# [1] Connection security
 		# Connected on remote machine, via ssh (good).
@@ -16,11 +25,12 @@
 
 
 	# [2] User type
+        groupList=($(groups))
 		# Root
 		if [[ ${USER} = "root" ]]; then
 			USER_PS="%F{red}%n%f"
 		# Admin
-		elif groups | grep -qw sudo; then
+        elif _if_array_contains prod ${groupList[@]} || _if_array_contains wheel ${groupList[@]} || _if_array_contains sudo ${groupList[@]}; then
 			USER_PS="%F{yellow}%n%f"
 		# Normal
 		else
@@ -82,8 +92,7 @@
 			function load_color() {
 					# Load vars
 						# Small load
-						SLOAD=30
-						# Medium load
+						SLOAD=30 # Medium load
 						MLOAD=60
 						# Large load
 						LLOAD=80
@@ -144,3 +153,4 @@ precmd() {
 	disk_color
 	buildPS
 }
+
